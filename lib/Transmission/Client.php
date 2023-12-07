@@ -5,6 +5,9 @@ use Buzz\Message\Request;
 use Buzz\Message\Response;
 use Buzz\Client\Curl;
 use Buzz\Client\ClientInterface;
+use RuntimeException;
+use Throwable;
+use stdClass;
 
 /**
  * The Client class is used to make API calls to the Transmission server
@@ -31,7 +34,7 @@ class Client
     /**
      * @var string
      */
-    const DEFAULT_PROTOCOL = 'http';
+    const DEFAULT_SCHEMA = 'http';
 
     /**
      * @var string
@@ -41,7 +44,7 @@ class Client
     /**
      * @var string
      */
-    protected $protocol = self::DEFAULT_PROTOCOL;
+    protected $schema = self::DEFAULT_SCHEMA;
 
     /**
      * @var string
@@ -78,11 +81,11 @@ class Client
      */
     public function __construct(array $config)
     {
-        $this->protocol = (string)($config['protocol'] ?? self::DEFAULT_PROTOCOL);
+        $this->schema = (string)($config['schema'] ?? self::DEFAULT_SCHEMA);
         $this->host = (string)($config['host'] ?? self::DEFAULT_HOST);
         $this->port = (int)($config['port'] ?? self::DEFAULT_PORT);
-        $this->token    = null;
         $this->client   = new Curl();
+        $this->token    = null;
 
         if (!empty($config['options']) && is_array($config['options'])) {
             foreach ($config['options'] as $option => $value) {
@@ -92,149 +95,127 @@ class Client
     }
 
     /**
-     * Authenticate against the Transmission server
-     *
      * @param string $username
      * @param string $password
+     * @return void
      */
-    public function authenticate($username, $password)
+    public function authenticate(string $username, string $password): void
     {
         $this->auth = base64_encode($username .':'. $password);
     }
 
     /**
-     * Make an API call
-     *
-     * @param  string           $method
-     * @param  array            $arguments
-     * @return \stdClass
-     * @throws \RuntimeException
+     * @param string $method
+     * @param array $arguments
+     * @return stdClass
+     * @throws RuntimeException
      */
-    public function call($method, array $arguments)
+    public function call(string $method, array $arguments): stdClass
     {
-        list($request, $response) = $this->compose($method, $arguments);
+        [$request, $response] = $this->compose($method, $arguments);
 
         try {
             $this->getClient()->send($request, $response);
-        } catch (\Exception $e) {
-            throw new \RuntimeException(
-                'Could not connect to Transmission',
-                0,
-                $e
-            );
+        } catch (Throwable $e) {
+            throw new RuntimeException('Could not connect to Transmission', 0, $e);
         }
 
         return $this->validateResponse($response, $method, $arguments);
     }
 
     /**
-     * Get the URL used to connect to Transmission
-     *
      * @return string
      */
-    public function getUrl()
+    public function getUrl(): string
     {
-        return strtr('{protocol}://{host}:{port}', [
-            '{protocol}' => $this->protocol,
+        return strtr('{schema}://{host}:{port}', [
+            '{schema}' => $this->schema,
             '{host}' => $this->getHost(),
             '{port}' => $this->getPort(),
         ]);
     }
 
     /**
-     * Set the hostname of the Transmission server
-     *
-     * @param string $host
+     * @param $host
+     * @return void
      */
-    public function setHost($host)
+    public function setHost($host): void
     {
-        $this->host = (string) $host;
+        $this->host = (string)$host;
     }
 
     /**
-     * Get the hostname of the Transmission server
-     *
      * @return string
      */
-    public function getHost()
+    public function getHost(): string
     {
         return $this->host;
     }
 
     /**
-     * Set the port the Transmission server is listening on
-     *
-     * @param integer $port
+     * @param $port
+     * @return void
      */
-    public function setPort($port)
+    public function setPort($port): void
     {
-        $this->port = (integer) $port;
+        $this->port = (integer)$port;
     }
 
     /**
-     * Get the port the Transmission server is listening on
-     *
-     * @return integer
+     * @return int
      */
-    public function getPort()
+    public function getPort(): int
     {
         return $this->port;
     }
 
     /**
-     * Set the path to Transmission server rpc api
-     *
-     * @param string $path
+     * @param $path
+     * @return string
      */
-    public function setPath($path)
+    public function setPath($path): string
     {
         return $this->path = (string) $path;
     }
 
     /**
-     * Get the path to Transmission server rpc api
+     * @return string
      */
-    public function getPath()
+    public function getPath(): string
     {
         return $this->path;
     }
 
     /**
-     * Set the CSRF-token of the Transmission client
-     *
-     * @param string $token
+     * @param $token
+     * @return void
      */
-    public function setToken($token)
+    public function setToken($token): void
     {
-        $this->token = (string) $token;
+        $this->token = (string)$token;
     }
 
     /**
-     * Get the CSRF-token for the Transmission client
-     *
-     * @return string
+     * @return string|null CSRF-token for the Transmission client
      */
-    public function getToken()
+    public function getToken(): string
     {
         return $this->token;
     }
 
     /**
-     * Set the Buzz client used to connect to Transmission
-     *
      * @param ClientInterface $client
+     * @return void
      */
-    public function setClient(ClientInterface $client)
+    public function setClient(ClientInterface $client): void
     {
         $this->client = $client;
     }
 
     /**
-     * Get the Buzz client used to connect to Transmission
-     *
-     * @return ClientInterface
+     * @return ClientInterface Buzz client
      */
-    public function getClient()
+    public function getClient(): ClientInterface
     {
         return $this->client;
     }
@@ -242,47 +223,40 @@ class Client
     /**
      * @param string $method
      * @param array $arguments
-     * @return array|Request[]|Response[]
+     * @return array
      */
-    protected function compose($method, $arguments)
+    protected function compose(string $method, array $arguments): array
     {
         $request = new Request('POST', $this->getPath(), $this->getUrl());
         $request->addHeader(sprintf('%s: %s', self::TOKEN_HEADER, $this->getToken()));
-        $request->setContent(json_encode(array(
-            'method'    => $method,
-            'arguments' => $arguments
-        )));
+        $request->setContent(json_encode(['method'    => $method, 'arguments' => $arguments]));
 
         if (is_string($this->auth)) {
             $request->addHeader(sprintf('Authorization: Basic %s', $this->auth));
         }
 
-        return array($request, new Response());
+        return [$request, new Response()];
     }
 
     /**
-     * @param  Response $response
-     * @param  string                $method
-     * @param  array                 $arguments
-     * @return \stdClass
-     * @throws \RuntimeException
+     * @param Response $response
+     * @param string $method
+     * @param array $arguments
+     * @return stdClass
+     * @throws RuntimeException
      */
-    protected function validateResponse($response, $method, $arguments)
+    protected function validateResponse(Response $response, string $method, array $arguments): stdClass
     {
-        if (!in_array($response->getStatusCode(), array(200, 401, 409))) {
-            throw new \RuntimeException('Unexpected response received from Transmission');
+        switch ($response->getStatusCode()) {
+            case 200:
+                return json_decode($response->getContent());
+            case 409:
+                $this->setToken($response->getHeader(self::TOKEN_HEADER));
+                return $this->call($method, $arguments);
+            case 401:
+                throw new RuntimeException('Access to Transmission requires authentication');
+            default:
+                throw new RuntimeException('Unexpected response received from Transmission');
         }
-
-        if ($response->getStatusCode() == 401) {
-            throw new \RuntimeException('Access to Transmission requires authentication');
-        }
-
-        if ($response->getStatusCode() == 409) {
-            $this->setToken($response->getHeader(self::TOKEN_HEADER));
-
-            return $this->call($method, $arguments);
-        }
-
-        return json_decode($response->getContent());
     }
 }
