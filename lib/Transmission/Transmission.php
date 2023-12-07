@@ -29,15 +29,11 @@ class Transmission
     protected $mapper;
 
     /**
-     * Constructor
-     *
-     * @param string  $host
-     * @param integer $port
-     * @param string  $path
+     * @param array $config
      */
-    public function __construct($host = null, $port = null, $path = null)
+    public function __construct(array $config = [])
     {
-        $this->setClient(new Client($host, $port, $path));
+        $this->setClient(new Client($config));
         $this->setMapper(new PropertyMapper());
         $this->setValidator(new ResponseValidator());
     }

@@ -31,7 +31,17 @@ class Client
     /**
      * @var string
      */
+    const DEFAULT_PROTOCOL = 'http';
+
+    /**
+     * @var string
+     */
     const TOKEN_HEADER = 'X-Transmission-Session-Id';
+
+    /**
+     * @var string
+     */
+    protected $protocol = self::DEFAULT_PROTOCOL;
 
     /**
      * @var string
@@ -64,20 +74,21 @@ class Client
     protected $auth;
 
     /**
-     * Constructor
-     *
-     * @param string  $host The hostname of the Transmission server
-     * @param integer $port The port the Transmission server is listening on
-     * @param string  $path The path to Transmission server rpc api
+     * @param array $config
      */
-    public function __construct($host = null, $port = null, $path = null)
+    public function __construct(array $config)
     {
+        $this->protocol = (string)($config['protocol'] ?? self::DEFAULT_PROTOCOL);
+        $this->host = (string)($config['host'] ?? self::DEFAULT_HOST);
+        $this->port = (int)($config['port'] ?? self::DEFAULT_PORT);
         $this->token    = null;
         $this->client   = new Curl();
 
-        if ($host) $this->setHost($host);
-        if ($port) $this->setPort($port);
-        if ($path) $this->setPath($path);
+        if (!empty($config['options']) && is_array($config['options'])) {
+            foreach ($config['options'] as $option => $value) {
+                $this->client->setOption($option, $value);
+            }
+        }
     }
 
     /**
@@ -123,11 +134,11 @@ class Client
      */
     public function getUrl()
     {
-        return sprintf(
-            'http://%s:%d',
-            $this->getHost(),
-            $this->getPort()
-        );
+        return strtr('{protocol}://{host}:{port}', [
+            '{protocol}' => $this->protocol,
+            '{host}' => $this->getHost(),
+            '{port}' => $this->getPort(),
+        ]);
     }
 
     /**

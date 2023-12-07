@@ -62,10 +62,8 @@ class ResponseValidator
         $fields = array('torrent-added', 'torrent-duplicate');
 
         foreach ($fields as $field) {
-            if (isset($response->arguments) &&
-                isset($response->arguments->$field) &&
-                count($response->arguments->$field)) {
-                return $response->arguments->$field;
+            if (isset($response->arguments, $response->arguments->{$field})) {
+                return $response->arguments->{$field};
             }
         }
 
