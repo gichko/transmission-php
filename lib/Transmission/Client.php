@@ -196,9 +196,9 @@ class Client
     }
 
     /**
-     * @return string|null CSRF-token for the Transmission client
+     * @return string|null csrf-token
      */
-    public function getToken(): string
+    public function getToken(): ?string
     {
         return $this->token;
     }
